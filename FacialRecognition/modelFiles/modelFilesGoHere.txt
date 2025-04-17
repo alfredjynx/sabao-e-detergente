@@ -1,0 +1,11 @@
+Since the files are jut too damn large for git, here are the files you need to download:
+
+arcface_weights.h5
+deepid_keras_weights.h5
+facenet_weights.h5
+facenet512_weights.h5
+openface_weights.h5
+retinaface.h5
+vgg_face_weights.h5
+vgg16_301_v2.keras
+
