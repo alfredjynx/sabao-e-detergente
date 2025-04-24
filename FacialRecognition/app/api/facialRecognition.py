@@ -4,7 +4,7 @@ import os
 from app.api.DTO.FaceDataDTO import FaceData
 from app.api.service.saveFace import save_face_service
 from app.api.service.identifyFace import identify_face
-from app.api.service.getNames import get_names
+from app.api.service.getNames import get_faces
 
 # --------------------------------------- #
 
@@ -44,7 +44,10 @@ async def upload_image(
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
 @router.post("/face/save-face/")
-async def save_face(data: FaceData):
+async def save_face(
+    file: UploadFile = File(...),
+    name: str = Form() 
+):
     """Saves a face in the database.
     Args:
         data (FaceData): The data of the face to be saved. It must contain the following keys:
@@ -52,20 +55,25 @@ async def save_face(data: FaceData):
         "image": The image of the face.
         "token": The token of the user making the request.
     Returns:
-        dict: Returns a dictionary with "message" indicating the success of the operation.
+        dict: Returns a dictionary with "id" indicating uuid of person saved
     """
-    response = save_face_service(data)
+    response = await save_face_service(file, name)
+    
+    print(response)
+    
     return response
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
-@router.get("/face/get-names/")
-async def router_get_names():
+@router.get("/face/get-faces/")
+async def router_get_names(
+    img_id: str = Form() 
+):
     """Gets the names of the faces in the database.
     Returns:
         dict: Returns a dictionary with the key "names" containing a list of the names of all possible names.
     """
-    response = get_names()
+    response = get_faces(img_id)
     return response
 
 

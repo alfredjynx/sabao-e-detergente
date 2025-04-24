@@ -42,6 +42,7 @@ services:
     image: facial-recognition:latest
     volumes:
       - ./FacialRecognition/:/app/
+      - ./vector_index:/app/faiss/
     ports:
       - 8084:8000
     deploy:

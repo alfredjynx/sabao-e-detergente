@@ -1,23 +1,24 @@
-
-from fastapi.responses import JSONResponse
-from deepface import DeepFace
-import os
-import cv2
+import faiss
+import numpy as np
 import base64
+import mysql.connector
+import cv2
 import time
-from fastapi import File, UploadFile, Form
+from deepface import DeepFace
+from fastapi.responses import JSONResponse
 
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
+DB_PATH = "/app/faiss/face_index.index"
+IMAGE_PATH = "/app/app/api/temp/face_recognized.jpeg"
+
+db = mysql.connector.connect(
+    host="mysql",
+    user="root",
+    password="root",
+    database="bubble"
+)
+cursor = db.cursor(dictionary=True)
 
 def calculate_iou(box1, box2):
-    '''Calculates the Intersection over Union (IoU) of two bounding boxes.
-    Args:
-        box1 (list): The first bounding box, containing the x, y, width, and height.
-        box2 (list): The second bounding box, containing the x, y, width, and height.
-    Returns:
-        float: The IoU value.
-    '''
-    
     x1, y1, w1, h1 = box1
     x2, y2, w2, h2 = box2
     x_inter1 = max(x1, x2)
@@ -27,141 +28,64 @@ def calculate_iou(box1, box2):
     inter_width = max(0, x_inter2 - x_inter1)
     inter_height = max(0, y_inter2 - y_inter1)
     intersection_area = inter_width * inter_height
-    box1_area = w1 * h1
-    box2_area = w2 * h2
+    union_area = w1 * h1 + w2 * h2 - intersection_area
+    return intersection_area / union_area if union_area != 0 else 0
 
-    union_area = box1_area + box2_area - intersection_area
 
-    if union_area == 0:
-        return 0  
-    
-    iou = intersection_area / union_area
-    return iou
-
-# -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
-
-async def identify_face(
-    file: UploadFile = File(...),
-    modelName: str = Form("VGG-Face") 
-):
-
+async def identify_face(file, modelName="VGG-Face"):
     contents = await file.read()
-    with open("/app/app/api/temp/face_recognized.jpeg", "wb") as f:
+    with open(IMAGE_PATH, "wb") as f:
         f.write(contents)
 
-    db_path = "/app/app/api/facesDatabase"
-    imgPath = "/app/app/api/temp/face_recognized.jpeg"
+    # Load index
+    index = faiss.read_index(DB_PATH)
+    results = []
 
-    # ---------------------------------------------------------- #
-    
-    faces = []
+    # Extract all faces
+    faces = DeepFace.extract_faces(img_path=IMAGE_PATH, detector_backend='retinaface')
+    img = cv2.imread(IMAGE_PATH)
+
     names = []
-    backupNames = []
-    recognized_faces_coords = []  
-    try:
-        result_list = DeepFace.find(img_path=imgPath, db_path=db_path, model_name=modelName)
-        
-        if result_list:
-            for idx, result_df in enumerate(result_list):
-                
-                # ---------------------------------------------------------- #
+    base64_faces = []
+    backups = []
+    coords_seen = []
 
-                # Check if a match was found
-                if not result_df.empty:
-                    matchPath = result_df.iloc[0].identity
-                    match = matchPath.split("/")[-2]
-                    coords = [result_df.iloc[0].source_x, result_df.iloc[0].source_y, result_df.iloc[0].source_w, result_df.iloc[0].source_h]
+    for i, face in enumerate(faces):
+        coords = [face["facial_area"]["x"], face["facial_area"]["y"], face["facial_area"]["w"], face["facial_area"]["h"]]
 
-                    # gets the next most likely matches in the list (aka backup names)
-                    i = 1
-                    backups = []
-                    prevNames = [match]
-                    
-                    while len(result_df) > i and len(prevNames) < 4:
-                        if i >= len(result_df):
-                            break  # Prevent accessing out of range
-                        extraMatchPath = result_df.iloc[i].identity
-                        extraMatch = extraMatchPath.split("/")[-2]
-                        if extraMatch in prevNames:
-                            i += 1
-                            continue
-                        else:
-                            confidence = result_df.iloc[i].distance * 100
-                            confidence = round(confidence, 2)
-                            backups.append({"name": extraMatch, "confidence": confidence})
-                            prevNames.append(extraMatch)
-                            i += 1
+        # Avoid duplicate matches (IoU)
+        if any(calculate_iou(coords, prev) > 0.35 for prev in coords_seen):
+            continue
+        coords_seen.append(coords)
 
-                    # Process the face and extract the sub-image
-                    print(coords, "\n", match, "\n")
-                    face_image = cv2.imread(imgPath)
-                    face_image = face_image[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
-                    # cv2.imwrite(f"/app/app/api/temp/{match}.jpeg", face_image)
-                    _, buffer = cv2.imencode('.jpg', face_image)
+        # Crop & represent
+        face_crop = img[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
+        embedding = DeepFace.represent(img_path=IMAGE_PATH, model_name=modelName, enforce_detection=False, detector_backend="retinaface")[i]['embedding']
+        embedding_np = np.array(embedding).astype("float32").reshape(1, -1)
 
-                    # Encode the image as base64 so it can be returned in JSON
-                    encoded_image = base64.b64encode(buffer).decode('utf-8')
-                    faces.append(encoded_image)
-                    names.append(match)
-                    backupNames.append(backups)
+        # FAISS search
+        D, I = index.search(embedding_np, 5)
 
-                    recognized_faces_coords.append(coords)
-                
-                # ---------------------------------------------------------- #                
-        
+        face_b64 = base64.b64encode(cv2.imencode('.jpg', face_crop)[1]).decode('utf-8')
+        base64_faces.append(face_b64)
+
+        # Fetch names for top results
+        matched_names = []
+        for j, idx in enumerate(I[0]):
+            cursor.execute("SELECT name FROM face_embeddings WHERE faiss_index_id = %s", (int(idx),))
+            row = cursor.fetchone()
+            if row:
+                matched_names.append({"name": row["name"], "confidence": round(float(D[0][j]), 2)})
+
+        if matched_names:
+            names.append(matched_names[0]["name"])
+            backups.append(matched_names[1:])  # other backup names
         else:
-            print("No faces detected")
-
-    except Exception as e:
-        if "Face could not be detected" in str(e):
-            print("No faces detected")
-        else:
-            print(f"Error: {str(e)}")
-
-    # ---------------------------------------------------------- #
-
-    # Handles unrecognized faces
-    detected_faces = DeepFace.extract_faces(img_path=imgPath, detector_backend='retinaface')
-    if detected_faces:
-        i = 0
-        for face in detected_faces:
-            i += 1
-            # Get the coordinates for each detected face
-            coords = [face["facial_area"]["x"], face["facial_area"]["y"], face["facial_area"]["w"], face["facial_area"]["h"]]
-            name = f"No Match {i}"
-
-            # Check if the detected face is already recognized
-            start_time = time.time()
-            is_recognized = False
-            for other_coord in recognized_faces_coords:
-                iou = calculate_iou(coords, other_coord)
-                print(f"IoU: {iou}")
-                if iou >= 0.35:
-                    is_recognized = True
-            if is_recognized:
-                continue  # Skip if the face is already recognized
-            print(f"Time elapsed (IoU): {time.time() - start_time} \nis_recognized: {is_recognized}")
-
-            # Process the face and extract the sub-image
-            print(coords, "\n")
-            face_image = cv2.imread(imgPath)
-            face_image = face_image[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
-            # cv2.imwrite(f"/app/app/api/temp/{name}.jpeg", face_image)
-            _, buffer = cv2.imencode('.jpg', face_image)
-
-            # Encode the image as base64 so it can be returned in JSON
-            encoded_image = base64.b64encode(buffer).decode('utf-8')
-            faces.append(encoded_image)
-            names.append(name)
-            backupNames.append([{"name": "No Match", "confidence": 0}])
-
-    else:
-        print("\n", "No faces detected", "\n")
-
-    # --------------------------------------- #
+            names.append(f"No Match {i+1}")
+            backups.append([{"name": "No Match", "confidence": 0.0}])
 
     return JSONResponse(content={
-        "faces": faces,
+        "faces": base64_faces,
         "names": names,
-        "backups": backupNames
+        "backups": backups
     })

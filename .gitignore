@@ -250,3 +250,6 @@ mysql.sock
 
 credentials
 ./credentials
+
+vector_index
+./vector_index

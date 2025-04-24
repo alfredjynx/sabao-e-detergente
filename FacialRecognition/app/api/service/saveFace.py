@@ -1,45 +1,65 @@
+from deepface import DeepFace
+import faiss
+import numpy as np
+import mysql.connector
 import os
-import io
-import base64
-from app.api.DTO.FaceDataDTO import FaceData
-from fastapi import HTTPException
+from uuid import uuid4
+from pathlib import Path
 
-# --------------------------------------- #
+DB_PATH = "/app/faiss/face_index.index"
+FAISS_SIZE = 2622  # VGG-Face
+FAISS_DIR = Path(DB_PATH).parent
+FAISS_DIR.mkdir(parents=True, exist_ok=True)
 
-def save_face_service(data: FaceData):
-    name = data.name.strip()
-    image_base64 = data.image
-    image = base64.b64decode(image_base64)
-    contents = io.BytesIO(image).read()
+# Load or create FAISS index
+if os.path.exists(DB_PATH):
+    index = faiss.read_index(DB_PATH)
+else:
+    index = faiss.IndexFlatL2(FAISS_SIZE)
 
-    if not os.path.exists(f"/app/app/api/facesDatabase/{name}"):
-        os.makedirs(f"/app/app/api/facesDatabase/{name}")
+# MySQL connection (customize credentials via env or use a shared util)
+db = mysql.connector.connect(
+    host="mysql",
+    user="root",
+    password="root",
+    database="bubble"
+)
+cursor = db.cursor()
 
-    imgName = f"{name} ({len(os.listdir(f'/app/app/api/facesDatabase/{name}'))+1})"
-    with open(f"/app/app/api/facesDatabase/{name}/{imgName}.jpeg", "wb") as f:
+# ------------------------------ #
+
+async def save_face_service(file, name: str):
+    contents = await file.read()
+    
+    temp_path = "/app/app/api/temp/face_recognized.jpeg"
+    with open(temp_path, "wb") as f:
         f.write(contents)
 
-    return {"message": "Face saved successfully"}
-
-# --------------------------------------- #
-
-def add_name(name: str):
-    with open('app/api/NOMES_PESSOAS.csv', 'a') as file:
-        file.write(f'\n"{name},,",')
-    return {"message": "Name added successfully"}
-
-# --------------------------------------- #
-
-async def service_revert_save_face(description: str):
-
+    # 1. Extract embedding
+    embedding = DeepFace.represent(img_path=temp_path, model_name="VGG-Face")[0]['embedding']
+    embedding_np = np.array(embedding).astype("float32").reshape(1, -1)
     
-    name = description.replace("Salvou uma face com o nome ", "")
-    name = name.replace(" no sistema", "")
-    name = name.strip()
+    if os.path.exists(DB_PATH):
+        index = faiss.read_index(DB_PATH)
+        if embedding_np.shape[1] != index.d:
+            raise ValueError(f"Embedding size {embedding_np.shape[1]} does not match FAISS index size {index.d}")
+    else:
+        index = faiss.IndexFlatL2(embedding_np.shape[1])
 
-    latest_image = sorted(os.listdir(f'/app/app/api/facesDatabase/{name}'))[-1]
-    os.remove(f'/app/app/api/facesDatabase/{name}/{latest_image}')
+    # 2. Add to FAISS
+    index.add(embedding_np)
+    faiss.write_index(index, DB_PATH)
+    faiss_id = index.ntotal - 1
 
-    return {"message": "Face removed successfully"}
-    
-    
+    # 3. Save to MySQL
+    image_path = f"/app/app/api/facesDatabase/{name}_{str(uuid4())[:8]}.jpeg"
+    with open(image_path, "wb") as f:
+        f.write(contents)
+
+    cursor.execute("""
+        INSERT INTO face_embeddings (name, faiss_index_id, image_path)
+        VALUES (%s, %s, %s)
+    """, (name, faiss_id, image_path))
+    db.commit()
+
+    return {"id": faiss_id}

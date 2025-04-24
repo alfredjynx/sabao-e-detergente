@@ -32,5 +32,6 @@ COPY requirements.txt .
 # Install the Python dependencies
 RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
+RUN pip install faiss-cpu 
 
 COPY . /app/

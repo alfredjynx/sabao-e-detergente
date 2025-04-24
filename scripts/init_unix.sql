@@ -1,5 +1,5 @@
-CREATE DATABASE IF NOT EXISTS masp;
-USE masp;
+CREATE DATABASE IF NOT EXISTS bubble;
+USE bubble;
 
 CREATE TABLE users (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -14,6 +14,16 @@ CREATE TABLE users (
     disabled BOOLEAN DEFAULT FALSE,
     INDEX idx_username (username)
 );
+
+
+CREATE TABLE face_embeddings (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    faiss_index_id INT NOT NULL,
+    image_path TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 
 CREATE TABLE history (
     id INT PRIMARY KEY AUTO_INCREMENT,
