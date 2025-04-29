@@ -71,11 +71,13 @@ async def identify_face(file, modelName="VGG-Face"):
 
         # Fetch names for top results
         matched_names = []
+        matched_clerk_ids = []
         for j, idx in enumerate(I[0]):
             cursor.execute("SELECT name FROM face_embeddings WHERE faiss_index_id = %s", (int(idx),))
             row = cursor.fetchone()
             if row:
                 matched_names.append({"name": row["name"], "confidence": round(float(D[0][j]), 2)})
+                matched_clerk_ids.append(row["clerk_id"])
 
         if matched_names:
             names.append(matched_names[0]["name"])
@@ -88,5 +90,6 @@ async def identify_face(file, modelName="VGG-Face"):
         "faces": base64_faces,
         "names": names,
         "backups": backups,
-        "coords": coords_seen
+        "coords": coords_seen,
+        "clerk_ids": matched_clerk_ids,
     })

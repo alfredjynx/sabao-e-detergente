@@ -28,7 +28,7 @@ cursor = db.cursor()
 
 # ------------------------------ #
 
-async def save_face_service(file, name: str):
+async def save_face_service(file, name: str, clerk_id: str):
     contents = await file.read()
     
     temp_path = "/app/app/api/temp/face_recognized.jpeg"
@@ -61,9 +61,9 @@ async def save_face_service(file, name: str):
         f.write(contents)
 
     cursor.execute("""
-        INSERT INTO face_embeddings (name, faiss_index_id, image_path)
-        VALUES (%s, %s, %s)
-    """, (name, faiss_id, image_path))
+        INSERT INTO face_embeddings (name, faiss_index_id, image_path, clerk_id)
+        VALUES (%s, %s, %s, %s)
+    """, (name, faiss_id, image_path, clerk_id))
     db.commit()
 
     return {"id": faiss_id}

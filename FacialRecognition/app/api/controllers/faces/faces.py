@@ -46,7 +46,8 @@ async def upload_image(
 @router.post("/face/save-face")
 async def save_face(
     file: UploadFile = File(...),
-    name: str = Form() 
+    name: str = Form(),
+    clerk_id: str = Form()
 ):
     """Saves a face in the database.
     Args:
@@ -57,7 +58,7 @@ async def save_face(
     Returns:
         dict: Returns a dictionary with "id" indicating uuid of person saved
     """
-    response = await save_face_service(file, name)
+    response = await save_face_service(file, name, clerk_id=clerk_id)
     
     print(response)
     
