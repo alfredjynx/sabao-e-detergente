@@ -2,9 +2,9 @@ from fastapi import File, Form, UploadFile, APIRouter
 import os
 
 from app.api.DTO.FaceDataDTO import FaceData
-from app.api.service.saveFace import save_face_service
-from app.api.service.identifyFace import identify_face
-from app.api.service.getNames import get_faces
+from FacialRecognition.app.api.service.faces.saveFace import save_face_service
+from FacialRecognition.app.api.service.faces.identifyFace import identify_face
+from FacialRecognition.app.api.service.faces.getNames import get_faces
 
 # --------------------------------------- #
 
@@ -22,7 +22,7 @@ router = APIRouter()
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
-@router.post("/face/facial-recognition/")
+@router.post("/face/facial-recognition")
 async def upload_image(
     file: UploadFile = File(...),
     modelName: str = Form("VGG-Face") 
@@ -43,7 +43,7 @@ async def upload_image(
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
-@router.post("/face/save-face/")
+@router.post("/face/save-face")
 async def save_face(
     file: UploadFile = File(...),
     name: str = Form() 
@@ -65,7 +65,7 @@ async def save_face(
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
-@router.get("/face/get-faces/")
+@router.get("/face/get-faces")
 async def router_get_names(
     img_id: str = Form() 
 ):

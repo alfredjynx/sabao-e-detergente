@@ -10,3 +10,10 @@ CREATE TABLE face_embeddings (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     clerk_id VARCHAR(255)
 );
+
+CREATE TABLE user (
+    id uniqueidentifier NOT NULL DEFAULT newid(),
+    name VARCHAR(255) NOT NULL,
+    clerk_id VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

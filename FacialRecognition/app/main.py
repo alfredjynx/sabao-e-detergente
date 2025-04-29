@@ -1,5 +1,6 @@
+from FacialRecognition.app.api.controllers.faces import faces
 from fastapi import FastAPI
-from app.api import facialRecognition
+from FacialRecognition.app.api.controllers.users import users
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -17,4 +18,5 @@ def root():
     '''This function is used to test the connection to the service, It says hello world!'''
     return {"Hello": "World, Facial Recognition"}
 
-app.include_router(facialRecognition.router)
+app.include_router(faces.router)
+app.include_router(users.router)
