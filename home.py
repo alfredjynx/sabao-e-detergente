@@ -8,7 +8,7 @@ from datetime import datetime
 from streamlit_cropper import st_cropper
 import shutil
 
-URL = "http://localhost:8084/face/" 
+URL = "http://localhost:8000/face/" 
 
 st.title('Facial Recognition Testing - Bubble')
 

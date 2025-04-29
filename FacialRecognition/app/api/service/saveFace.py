@@ -52,7 +52,11 @@ async def save_face_service(file, name: str):
     faiss_id = index.ntotal - 1
 
     # 3. Save to MySQL
-    image_path = f"/app/app/api/facesDatabase/{name}_{str(uuid4())[:8]}.jpeg"
+    
+    if not os.path.exists(f"/app/app/api/facesDatabase/{faiss_id}"):
+        os.mkdir(f"/app/app/api/facesDatabase/{faiss_id}")
+    
+    image_path = f"/app/app/api/facesDatabase/{faiss_id}/{name}_{str(uuid4())[:8]}.jpeg"
     with open(image_path, "wb") as f:
         f.write(contents)
 

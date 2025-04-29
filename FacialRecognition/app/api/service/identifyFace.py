@@ -87,5 +87,6 @@ async def identify_face(file, modelName="VGG-Face"):
     return JSONResponse(content={
         "faces": base64_faces,
         "names": names,
-        "backups": backups
+        "backups": backups,
+        "coords": coords_seen
     })

@@ -2,19 +2,6 @@ version: '3.7'
 
 services:
 
-  gateway:
-    build: ./Gateway
-    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-    image: gateway:latest
-    volumes:
-      - ./Gateway/:/app/
-    ports:
-      - 8080:8000
-    deploy:
-      mode: replicated
-      replicas: 1
-    restart: always
-
   mysql:
     image: mysql:5.7
     container_name: mysql
@@ -44,7 +31,7 @@ services:
       - ./FacialRecognition/:/app/
       - ./vector_index:/app/faiss/
     ports:
-      - 8084:8000
+      - 8000:8000
     deploy:
       mode: replicated
       replicas: 1
