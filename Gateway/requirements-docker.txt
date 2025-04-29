@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-python-multipart
-py-eureka-client
-requests
-xmltodict
