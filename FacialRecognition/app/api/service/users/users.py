@@ -23,12 +23,19 @@ async def get_user_service(clerk_id):
     # Check if user exists
     cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
     result = cursor.fetchone()
+
+    #check if user has face embeddings in the database
+    cursor.execute("SELECT * FROM face_embeddings WHERE clerk_id = %s", (clerk_id,))
+    face_embeddings = cursor.fetchall() 
+    #create a bool to check if the user has face embeddings in the database
+    has_face_embeddings = True if face_embeddings else False
     
     if result:
         return {
             "id": result[0],
             "username": result[1],
-            "clerk_id": result[2]
+            "clerk_id": result[2],
+            "face_embeddings": has_face_embeddings
         }
     
     return {"error": "User not found"}
@@ -56,3 +63,50 @@ async def register_user_service(username, clerk_id):
     db.commit()
     
     return {"id": user_id}
+
+async def get_all_users_service():
+    """Gets all users from the database.
+    Returns:
+        dict: Returns a dictionary with all users.
+    """
+    cursor.execute("SELECT * FROM users")
+    result = cursor.fetchall()
+    
+    users = []
+    for row in result:
+        users.append({
+            "id": row[0],
+            "username": row[1],
+            "clerk_id": row[2]
+        })
+    
+    return {"users": users}
+
+async def delete_user_service(clerk_id):
+    """Deletes the user with the given clerk_id.
+    Args:
+        clerk_id (str): The email of the user.
+    Returns:
+        dict: Returns a dictionary with the user data.
+    """
+    # Check if user exists
+    cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        return {"error": "User not found"}
+    
+    # Delete the user from the database
+    cursor.execute("DELETE FROM users WHERE clerk_id = %s", (clerk_id,))
+    db.commit()
+
+    #TODO: Delete the user's face embeddings from the database faiss index
+    # # Assuming you have a function to delete the face embeddings from the faiss index
+
+    # cursor.execute("DELETE FROM face_embeddings WHERE clerk_id = %s", (clerk_id,))
+    
+    return {
+        "id": result[0],
+        "username": result[1],
+        "clerk_id": result[2]
+    }
