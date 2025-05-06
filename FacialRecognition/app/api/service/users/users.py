@@ -13,7 +13,7 @@ db = mysql.connector.connect(
 )
 cursor = db.cursor()
 
-def get_user_service(clerk_id):
+async def get_user_service(clerk_id):
     """Gets the user with the given clerk_id.
     Args:
         clerk_id (str): The email of the user.
@@ -33,7 +33,7 @@ def get_user_service(clerk_id):
     
     return {"error": "User not found"}
     
-def register_user_service(username, clerk_id):
+async def register_user_service(username, clerk_id):
     """Registers a new user in the database.
     Args:
         username (str): The name of the user.
@@ -52,7 +52,7 @@ def register_user_service(username, clerk_id):
     user_id = str(uuid4())
     
     # Insert the new user into the database
-    cursor.execute("INSERT INTO users (id, username, clerk_id) VALUES (%s, %s, %s)", (user_id, username, clerk_id))
+    cursor.execute("INSERT INTO users (id, name, clerk_id) VALUES (%s, %s, %s)", (user_id, username, clerk_id))
     db.commit()
     
     return {"id": user_id}

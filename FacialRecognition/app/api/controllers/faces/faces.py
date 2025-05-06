@@ -2,9 +2,9 @@ from fastapi import File, Form, UploadFile, APIRouter
 import os
 
 from app.api.DTO.FaceDataDTO import FaceData
-from FacialRecognition.app.api.service.faces.saveFace import save_face_service
-from FacialRecognition.app.api.service.faces.identifyFace import identify_face
-from FacialRecognition.app.api.service.faces.getNames import get_faces
+from app.api.service.faces.saveFace import save_face_service
+from app.api.service.faces.identifyFace import identify_face
+from app.api.service.faces.getNames import get_faces
 
 # --------------------------------------- #
 

@@ -1,6 +1,6 @@
-from FacialRecognition.app.api.controllers.faces import faces
+from app.api.controllers.faces import faces
 from fastapi import FastAPI
-from FacialRecognition.app.api.controllers.users import users
+from app.api.controllers.users import users
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
