@@ -73,9 +73,10 @@ async def identify_face(file, modelName="VGG-Face"):
         matched_names = []
         matched_clerk_ids = []
         for j, idx in enumerate(I[0]):
-            cursor.execute("SELECT name FROM face_embeddings WHERE faiss_index_id = %s", (int(idx),))
+            cursor.execute("SELECT name, clerk_id FROM face_embeddings WHERE faiss_index_id = %s", (int(idx),))
             row = cursor.fetchone()
             if row:
+                print(row)
                 matched_names.append({"name": row["name"], "confidence": round(float(D[0][j]), 2)})
                 matched_clerk_ids.append(row["clerk_id"])
 

@@ -22,7 +22,7 @@ router = APIRouter()
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
-@router.post("/face/facial-recognition")
+@router.post("/face/recognize")
 async def upload_image(
     file: UploadFile = File(...),
     modelName: str = Form("VGG-Face") 
@@ -43,10 +43,9 @@ async def upload_image(
 
 # -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=- #
 
-@router.post("/face/save-face")
+@router.post("/face/save")
 async def save_face(
     file: UploadFile = File(...),
-    name: str = Form(),
     clerk_id: str = Form()
 ):
     """Saves a face in the database.
@@ -58,7 +57,7 @@ async def save_face(
     Returns:
         dict: Returns a dictionary with "id" indicating uuid of person saved
     """
-    response = await save_face_service(file, name, clerk_id=clerk_id)
+    response = await save_face_service(file, clerk_id=clerk_id)
     
     print(response)
     

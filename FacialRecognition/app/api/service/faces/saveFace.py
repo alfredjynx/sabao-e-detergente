@@ -28,7 +28,20 @@ cursor = db.cursor()
 
 # ------------------------------ #
 
-async def save_face_service(file, name: str, clerk_id: str):
+async def save_face_service(file, clerk_id: str):
+    
+    cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        return {"error": "User not found"}
+    
+    user_dict = {
+            "id": result[0],
+            "name": result[1],
+            "clerk_id": result[2]
+        }
+    
     contents = await file.read()
     
     temp_path = "/app/app/api/temp/face_recognized.jpeg"
@@ -56,14 +69,14 @@ async def save_face_service(file, name: str, clerk_id: str):
     if not os.path.exists(f"/app/app/api/facesDatabase/{faiss_id}"):
         os.mkdir(f"/app/app/api/facesDatabase/{faiss_id}")
     
-    image_path = f"/app/app/api/facesDatabase/{faiss_id}/{name}_{str(uuid4())[:8]}.jpeg"
+    image_path = f"/app/app/api/facesDatabase/{faiss_id}/{user_dict['name']}_{str(uuid4())[:8]}.jpeg"
     with open(image_path, "wb") as f:
         f.write(contents)
 
     cursor.execute("""
-        INSERT INTO face_embeddings (name, faiss_index_id, image_path, clerk_id)
-        VALUES (%s, %s, %s, %s)
-    """, (name, faiss_id, image_path, clerk_id))
+        INSERT INTO face_embeddings (id, name, faiss_index_id, image_path, clerk_id)
+        VALUES (%s, %s, %s, %s, %s)
+    """, ( user_dict["id"], user_dict["name"], faiss_id, image_path, clerk_id))
     db.commit()
 
     return {"id": faiss_id}
