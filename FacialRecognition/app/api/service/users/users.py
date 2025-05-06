@@ -62,7 +62,7 @@ async def register_user_service(username, clerk_id):
     cursor.execute("INSERT INTO users (id, name, clerk_id) VALUES (%s, %s, %s)", (user_id, username, clerk_id))
     db.commit()
     
-    return {"id": user_id}
+    return {"id": user_id, "clerk_id": clerk_id}
 
 async def get_all_users_service():
     """Gets all users from the database.
