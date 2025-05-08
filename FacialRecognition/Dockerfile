@@ -25,7 +25,8 @@ WORKDIR /app
 
 # Copy the model files into the container
 COPY modelFiles/ /root/.deepface/weights/
-    
+COPY faiss/face_index.index /app/faiss/
+
 # Copy the requirements file into the container
 COPY requirements.txt .
 
