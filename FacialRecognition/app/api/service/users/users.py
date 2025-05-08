@@ -4,6 +4,7 @@ import numpy as np
 import mysql.connector
 import os
 from uuid import uuid4
+from app.api.service.faces.deleteFace import delete_face_service
 
 db = mysql.connector.connect(
     host="mysql",
@@ -102,8 +103,7 @@ async def delete_user_service(clerk_id):
 
     #TODO: Delete the user's face embeddings from the database faiss index
     # # Assuming you have a function to delete the face embeddings from the faiss index
-
-    # cursor.execute("DELETE FROM face_embeddings WHERE clerk_id = %s", (clerk_id,))
+    delete_face_service(clerk_id=clerk_id)
     
     return {
         "id": result[0],
