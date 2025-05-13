@@ -4,7 +4,7 @@ import numpy as np
 import mysql.connector
 import os
 from uuid import uuid4
-from app.api.service.faces.deleteFace import delete_face_service
+from app.api.service.faces.faces import delete_face_service
 
 db = mysql.connector.connect(
     host="mysql",
@@ -15,20 +15,11 @@ db = mysql.connector.connect(
 cursor = db.cursor()
 
 async def get_user_service(clerk_id):
-    """Gets the user with the given clerk_id.
-    Args:
-        clerk_id (str): The email of the user.
-    Returns:
-        dict: Returns a dictionary with the user data.
-    """
-    # Check if user exists
     cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
     result = cursor.fetchone()
 
-    #check if user has face embeddings in the database
     cursor.execute("SELECT * FROM face_embeddings WHERE clerk_id = %s", (clerk_id,))
     face_embeddings = cursor.fetchall() 
-    #create a bool to check if the user has face embeddings in the database
     has_face_embeddings = True if face_embeddings else False
     
     if result:
@@ -42,34 +33,20 @@ async def get_user_service(clerk_id):
     return {"error": "User not found"}
     
 async def register_user_service(username, clerk_id):
-    """Registers a new user in the database.
-    Args:
-        username (str): The name of the user.
-        clerk_id (str): The email of the user.
-    Returns:
-        dict: Returns a dictionary with "id" indicating uuid of person saved
-    """
-    # Check if user already exists
     cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
     result = cursor.fetchone()
     
     if result:
         return {"error": "User already exists"}
-    
-    # Generate a new UUID for the user
+
     user_id = str(uuid4())
-    
-    # Insert the new user into the database
+
     cursor.execute("INSERT INTO users (id, name, clerk_id) VALUES (%s, %s, %s)", (user_id, username, clerk_id))
     db.commit()
     
     return {"id": user_id, "clerk_id": clerk_id}
 
 async def get_all_users_service():
-    """Gets all users from the database.
-    Returns:
-        dict: Returns a dictionary with all users.
-    """
     cursor.execute("SELECT * FROM users")
     result = cursor.fetchall()
     
@@ -84,25 +61,15 @@ async def get_all_users_service():
     return {"users": users}
 
 async def delete_user_service(clerk_id):
-    """Deletes the user with the given clerk_id.
-    Args:
-        clerk_id (str): The email of the user.
-    Returns:
-        dict: Returns a dictionary with the user data.
-    """
-    # Check if user exists
     cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
     result = cursor.fetchone()
     
     if not result:
         return {"error": "User not found"}
     
-    # Delete the user from the database
     cursor.execute("DELETE FROM users WHERE clerk_id = %s", (clerk_id,))
     db.commit()
 
-    #TODO: Delete the user's face embeddings from the database faiss index
-    # # Assuming you have a function to delete the face embeddings from the faiss index
     delete_face_service(clerk_id=clerk_id)
     
     return {
@@ -110,22 +77,72 @@ async def delete_user_service(clerk_id):
         "username": result[1],
         "clerk_id": result[2]
     }
-    
 
 async def user_follow_service(clerk_id, followed_clerk_id):
-    
-
     followed = get_user_service(clerk_id=followed_clerk_id)
     
     following = get_user_service(clerk_id=clerk_id)
     
-    
-    
-    # Insert the new user into the database
     cursor.execute("INSERT INTO user_follow (id_follow, id_followed) VALUES (%s, %s)", (following["id"], followed["id"]))
     db.commit()
     
     return {
         "message": f"Succesfully Followed {followed["username"]}"
     }
+
+async def user_unfollow_service(clerk_id, followed_clerk_id):
+    followed = get_user_service(clerk_id=followed_clerk_id)
+    
+    following = get_user_service(clerk_id=clerk_id)
+    
+    cursor.execute("DELETE FROM user_follow WHERE id_follow = %s AND id_followed = %s", (following["id"], followed["id"]))
+    db.commit()
+    
+    return {
+        "message": f"Succesfully Unfollowed {followed["username"]}"
+    }
+
+async def get_followers_service(clerk_id):
+    cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        return {"error": "User not found"}
+
+    cursor.execute("SELECT * FROM user_follow WHERE id_followed = %s", (result[0],))
+    result = cursor.fetchall()
+    
+    followers = []
+    for row in result:
+        cursor.execute("SELECT * FROM users WHERE id = %s", (row[0],))
+        follower = cursor.fetchone()
+        followers.append({
+            "id": follower[0],
+            "username": follower[1],
+            "clerk_id": follower[2]
+        })
+    
+    return {"followers": followers}
+
+async def get_following_service(clerk_id):
+    cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
+    result = cursor.fetchone()
+    
+    if not result:
+        return {"error": "User not found"}
+    
+    cursor.execute("SELECT * FROM user_follow WHERE id_follow = %s", (result[0],))
+    result = cursor.fetchall()
+    
+    following = []
+    for row in result:
+        cursor.execute("SELECT * FROM users WHERE id = %s", (row[1],))
+        followed_user = cursor.fetchone()
+        following.append({
+            "id": followed_user[0],
+            "username": followed_user[1],
+            "clerk_id": followed_user[2]
+        })
+    
+    return {"following": following}
     
