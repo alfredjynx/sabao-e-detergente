@@ -16,3 +16,11 @@ CREATE TABLE users (
     clerk_id VARCHAR(255) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+CREATE TABLE user_follow (
+    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    id_follow CHAR(36) NOT NULL,
+    id_followed CHAR(36) NOT NULL,
+    PRIMARY KEY (id)
+)

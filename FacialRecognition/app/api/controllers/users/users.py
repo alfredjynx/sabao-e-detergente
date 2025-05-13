@@ -1,6 +1,6 @@
 from fastapi import File, Form, UploadFile, APIRouter
 import os
-from app.api.service.users.users import register_user_service, get_user_service, get_all_users_service, delete_user_service
+from app.api.service.users.users import *
 
 router = APIRouter()
 
@@ -56,4 +56,12 @@ async def delete_user(
         dict: Returns a dictionary with the user data.
     """
     response = await delete_user_service(clerk_id)
+    return response
+
+@router.post("/users/follow")
+async def follow_user(
+    clerk_id: str = Form(...),
+    clerk_id_followed: str = Form(...)
+):
+    response =  await user_follow_service(clerk_id=clerk_id, followed_clerk_id=clerk_id_followed)
     return response

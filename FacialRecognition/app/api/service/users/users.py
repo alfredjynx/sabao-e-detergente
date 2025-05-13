@@ -110,3 +110,22 @@ async def delete_user_service(clerk_id):
         "username": result[1],
         "clerk_id": result[2]
     }
+    
+
+async def user_follow_service(clerk_id, followed_clerk_id):
+    
+
+    followed = get_user_service(clerk_id=followed_clerk_id)
+    
+    following = get_user_service(clerk_id=clerk_id)
+    
+    
+    
+    # Insert the new user into the database
+    cursor.execute("INSERT INTO user_follow (id_follow, id_followed) VALUES (%s, %s)", (following["id"], followed["id"]))
+    db.commit()
+    
+    return {
+        "message": f"Succesfully Followed {followed["username"]}"
+    }
+    
