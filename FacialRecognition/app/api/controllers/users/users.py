@@ -33,30 +33,30 @@ async def delete_user(
 
 @router.post("/users/{followed_clerk_id}/follow")
 async def follow_user(
-    clerk_id: str = Form(...),
-    clerk_id_followed: str = Form(...)
+    followed_clerk_id: str,
+    clerk_id: str = Form(...)
 ):
-    response =  await user_follow_service(clerk_id=clerk_id, followed_clerk_id=clerk_id_followed)
+    response =  await user_follow_service(clerk_id=clerk_id, followed_clerk_id=followed_clerk_id)
     return response
 
 @router.delete("/users/{followed_clerk_id}/follow")
 async def unfollow_user(
-    clerk_id: str = Form(...),
-    clerk_id_followed: str = Form(...)
+    followed_clerk_id: str,
+    clerk_id: str = Form(...)
 ):
-    response =  await user_unfollow_service(clerk_id=clerk_id, followed_clerk_id=clerk_id_followed)
+    response =  await user_unfollow_service(clerk_id=clerk_id, followed_clerk_id=followed_clerk_id)
     return response
 
 @router.get("/users/{clerk_id}/followers")
 async def get_followers(
-    clerk_id: str = Form(...)
+    clerk_id: str
 ):
     response =  await get_followers_service(clerk_id=clerk_id)
     return response
 
 @router.get("/users/{clerk_id}/following")
 async def get_following(
-    clerk_id: str = Form(...)
+    clerk_id: str
 ):
     response =  await get_following_service(clerk_id=clerk_id)
     return response
