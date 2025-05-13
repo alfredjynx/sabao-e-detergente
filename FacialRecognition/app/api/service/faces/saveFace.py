@@ -16,6 +16,7 @@ if os.path.exists(DB_PATH):
     index = faiss.read_index(DB_PATH)
 else:
     index = faiss.IndexFlatL2(FAISS_SIZE)
+    faiss.write_index(index, DB_PATH)
 
 # MySQL connection (customize credentials via env or use a shared util)
 db = mysql.connector.connect(
@@ -32,6 +33,9 @@ async def save_face_service(file, clerk_id: str):
     
     cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
     result = cursor.fetchone()
+    
+    print(result)
+    print(clerk_id)
     
     if not result:
         return {"error": "User not found"}
