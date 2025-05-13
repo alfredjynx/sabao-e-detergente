@@ -1,6 +1,6 @@
 from fastapi import File, Form, UploadFile, APIRouter
 import os
-from app.api.service.users.users import *
+from app.api.services.users.users import *
 
 router = APIRouter()
 

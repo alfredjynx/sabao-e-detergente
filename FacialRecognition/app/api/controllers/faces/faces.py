@@ -1,7 +1,7 @@
 from fastapi import File, Form, UploadFile, APIRouter
 import os
 
-from app.api.service.faces.faces import *
+from app.api.services.faces.faces import *
 
 
 TEMP_FOLDER = '/app/app/api/temp'

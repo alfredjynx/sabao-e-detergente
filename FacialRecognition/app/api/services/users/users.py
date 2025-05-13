@@ -4,7 +4,7 @@ import numpy as np
 import mysql.connector
 import os
 from uuid import uuid4
-from app.api.service.faces.faces import delete_face_service
+from app.api.services.faces.faces import delete_face_service
 
 db = mysql.connector.connect(
     host="mysql",
