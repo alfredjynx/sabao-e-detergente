@@ -83,7 +83,9 @@ async def user_follow_service(clerk_id, followed_clerk_id):
     
     following = get_user_service(clerk_id=clerk_id)
     
-    cursor.execute("INSERT INTO user_follow (id_follow, id_followed) VALUES (%s, %s)", (following["id"], followed["id"]))
+    follow_id = str(uuid4())
+    
+    cursor.execute("INSERT INTO user_follow (id, id_follow, id_followed) VALUES (%s, %s, %s)", (follow_id, following["id"], followed["id"]))
     db.commit()
     
     return {
