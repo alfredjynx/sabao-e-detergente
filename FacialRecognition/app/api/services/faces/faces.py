@@ -43,9 +43,9 @@ async def save_face_service(file, clerk_id: str):
         return {"error": "User not found"}
     
     user_dict = {
-            "id": result[0],
-            "name": result[1],
-            "clerk_id": result[2]
+            "id": result['id'],
+            "name": result['name'],
+            "clerk_id": result['clerk_id']
         }
     
     contents = await file.read()
@@ -78,11 +78,13 @@ async def save_face_service(file, clerk_id: str):
     image_path = f"/app/app/api/facesDatabase/{faiss_id}/{user_dict['name']}_{str(uuid4())[:8]}.jpeg"
     with open(image_path, "wb") as f:
         f.write(contents)
+        
+    face_id = str(uuid4())
 
     cursor.execute("""
-        INSERT INTO face_embeddings (id, name, faiss_index_id, image_path, clerk_id)
-        VALUES (%s, %s, %s, %s, %s)
-    """, ( user_dict["id"], user_dict["name"], faiss_id, image_path, clerk_id))
+        INSERT INTO face_embeddings (id, id_user, name, faiss_index_id, image_path, clerk_id)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, (face_id, user_dict["id"], user_dict["name"], faiss_id, image_path, clerk_id))
     db.commit()
 
     return {"id": faiss_id}
@@ -176,7 +178,7 @@ async def identify_face(file, modelName="VGG-Face"):
                 matched_clerk_ids.append(row["clerk_id"])
 
         if matched_names:
-            names.append(matched_names[0]["name"])
+            names.append([matched_names[0]["name"]])
             backups.append(matched_names[1:])  # other backup names
         else:
             names.append(f"No Match {i+1}")
