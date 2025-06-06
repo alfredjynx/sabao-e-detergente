@@ -3,6 +3,7 @@ USE bubble;
 
 CREATE TABLE face_embeddings (
     id CHAR(36) NOT NULL PRIMARY KEY,
+    id_user CHAR(36) NOT NULL,
     name VARCHAR(255) NOT NULL,
     faiss_index_id INT NOT NULL,
     image_path TEXT,
@@ -19,8 +20,7 @@ CREATE TABLE users (
 
 
 CREATE TABLE user_follow (
-    id CHAR(36) NOT NULL DEFAULT (UUID()),
+    id CHAR(36) NOT NULL PRIMARY KEY,
     id_follow CHAR(36) NOT NULL,
-    id_followed CHAR(36) NOT NULL,
-    PRIMARY KEY (id)
+    id_followed CHAR(36) NOT NULL
 )
