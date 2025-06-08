@@ -17,10 +17,10 @@ router = APIRouter()
 
 @router.post("/faces/recognition")
 async def upload_image(
-    file: UploadFile = File(...),
-    modelName: str = Form("VGG-Face") 
-):
-    response = await identify_face(file, modelName)
+    file: UploadFile = File(...)
+):  
+    print("Received file for face recognition (Facenet)")
+    response = await identify_face(file, modelName="Facenet")
     return response
 
 @router.post("/faces")

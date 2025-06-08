@@ -1,6 +1,7 @@
 from app.api.controllers.faces import faces
 from fastapi import FastAPI
 from app.api.controllers.users import users
+from app.api.controllers.users import messages
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
@@ -31,3 +32,4 @@ if not os.path.exists(DB_PATH):
 
 app.include_router(faces.router)
 app.include_router(users.router)
+app.include_router(messages.router)

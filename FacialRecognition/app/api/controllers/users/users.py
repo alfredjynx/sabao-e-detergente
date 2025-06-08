@@ -60,3 +60,11 @@ async def get_following(
 ):
     response =  await get_following_service(clerk_id=clerk_id)
     return response
+
+@router.post("/users/follow-by-photo/")
+async def follow_by_photo(
+    file: UploadFile = File(...),
+    clerk_id: str = Form(...)
+):
+    response = await follow_by_photo_service(file, clerk_id)
+    return response

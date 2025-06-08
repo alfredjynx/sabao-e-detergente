@@ -5,14 +5,7 @@ import mysql.connector
 import os
 from uuid import uuid4
 from app.api.services.faces.faces import delete_face_service
-
-db = mysql.connector.connect(
-    host="mysql",
-    user="root",
-    password="root",
-    database="bubble"
-)
-cursor = db.cursor()
+from app.api.services.db import db, cursor
 
 async def get_user_service(clerk_id):
     cursor.execute("SELECT * FROM users WHERE clerk_id = %s", (clerk_id,))
@@ -147,4 +140,14 @@ async def get_following_service(clerk_id):
         })
     
     return {"following": following}
-    
+
+async def follow_by_photo_service(file, clerk_id):
+    from app.api.services.faces.faces import identify_face
+    response = await identify_face(file)
+    clerk_ids = response.get("clerk_ids", [])
+    followed = []
+    for followed_clerk_id in clerk_ids:
+        if followed_clerk_id != clerk_id:
+            await user_follow_service(clerk_id=clerk_id, followed_clerk_id=followed_clerk_id)
+            followed.append(followed_clerk_id)
+    return {"followed": followed}

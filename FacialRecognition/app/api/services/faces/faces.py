@@ -1,7 +1,6 @@
 from deepface import DeepFace
 import faiss
 import numpy as np
-import mysql.connector
 import os
 from uuid import uuid4
 from pathlib import Path
@@ -11,25 +10,24 @@ import cv2
 import time
 from fastapi.responses import JSONResponse
 from app.api.utils.iou import calculate_iou
+from app.api.services.db import db, cursor
 
 IMAGE_PATH = "/app/app/api/temp/face_recognized.jpeg"
 DB_PATH = "/app/faiss/face_index.index"
-FAISS_SIZE = 2622
+FAISS_SIZE = 128  # Dlib embedding size
 FAISS_DIR = Path(DB_PATH).parent
 FAISS_DIR.mkdir(parents=True, exist_ok=True)
 
+# Carregue o índice FAISS uma única vez ao iniciar o módulo
+faiss_index = None
 if os.path.exists(DB_PATH):
-    index = faiss.read_index(DB_PATH)
+    print("DEBUG: Loading existing FAISS index from", DB_PATH)
+    faiss_index = faiss.read_index(DB_PATH)
 else:
-    index = faiss.IndexFlatL2(FAISS_SIZE)
+    faiss_index = None  # Será criado na primeira gravação
 
-db = mysql.connector.connect(
-    host="mysql",
-    user="root",
-    password="root",
-    database="bubble"
-)
-cursor = db.cursor(dictionary=True)
+# Log para mostrar os pesos disponíveis
+print('Pesos DeepFace disponíveis em /root/.deepface/weights:', os.listdir('/root/.deepface/weights') if os.path.exists('/root/.deepface/weights') else 'Diretório não existe')
 
 async def save_face_service(file, clerk_id: str):
     
@@ -41,12 +39,12 @@ async def save_face_service(file, clerk_id: str):
     
     if not result:
         return {"error": "User not found"}
-    
+    # result é uma tupla: (id, name, clerk_id)
     user_dict = {
-            "id": result['id'],
-            "name": result['name'],
-            "clerk_id": result['clerk_id']
-        }
+        "id": result[0],
+        "name": result[1],
+        "clerk_id": result[2]
+    }
     
     contents = await file.read()
     
@@ -54,16 +52,26 @@ async def save_face_service(file, clerk_id: str):
     with open(temp_path, "wb") as f:
         f.write(contents)
 
-    # 1. Extract embedding
-    embedding = DeepFace.represent(img_path=temp_path, model_name="VGG-Face")[0]['embedding']
-    embedding_np = np.array(embedding).astype("float32").reshape(1, -1)
-    
-    if os.path.exists(DB_PATH):
-        index = faiss.read_index(DB_PATH)
-        if embedding_np.shape[1] != index.d:
-            raise ValueError(f"Embedding size {embedding_np.shape[1]} does not match FAISS index size {index.d}")
+    # Resize da imagem para acelerar processamento
+    img = cv2.imread(temp_path)
+    img_resized = cv2.resize(img, (160, 160))
+    cv2.imwrite(temp_path, img_resized)
+
+    # 1. Extract embedding usando Facenet e detector opencv
+    embedding = DeepFace.represent(img_path=temp_path, model_name="Facenet", detector_backend="opencv")[0]['embedding']
+    embedding_np = np.array(embedding).astype("float32")
+    embedding_np = embedding_np / np.linalg.norm(embedding_np)  # Normalização L2
+    embedding_np = embedding_np.reshape(1, -1)
+    global faiss_index
+    if faiss_index is not None:
+        if embedding_np.shape[1] != faiss_index.d:
+            print(f"[ERRO] Dimensão do embedding ({embedding_np.shape[1]}) diferente do índice FAISS ({faiss_index.d}). Resetando índice.")
+            faiss_index = faiss.IndexFlatL2(embedding_np.shape[1])
+            faiss.write_index(faiss_index, DB_PATH)
+        index = faiss_index
     else:
         index = faiss.IndexFlatL2(embedding_np.shape[1])
+        faiss_index = index
 
     # 2. Add to FAISS
     index.add(embedding_np)
@@ -123,73 +131,92 @@ async def delete_face_service(clerk_id: str):
     faiss_ids = [row[2] for row in results]  # index 2 = faiss_index_id
 
     # Remove from FAISS
-    index.remove_ids(np.array(faiss_ids, dtype=np.int64))
+    global faiss_index
+    if faiss_index is not None:
+        faiss_index.remove_ids(np.array(faiss_ids, dtype=np.int64))
+        faiss.write_index(faiss_index, DB_PATH)
 
     # Delete from MySQL
     cursor.execute("DELETE FROM face_embeddings WHERE clerk_id = %s", (clerk_id,))
     db.commit()
 
-async def identify_face(file, modelName="VGG-Face"):
+async def identify_face(file, modelName="Facenet"):
     contents = await file.read()
     with open(IMAGE_PATH, "wb") as f:
         f.write(contents)
 
-    # Load index
-    index = faiss.read_index(DB_PATH)
-    results = []
-
-    # Extract all faces
-    faces = DeepFace.extract_faces(img_path=IMAGE_PATH, detector_backend='retinaface')
+    # Resize da imagem para acelerar processamento
     img = cv2.imread(IMAGE_PATH)
+    img_resized = cv2.resize(img, (160, 160))
+    cv2.imwrite(IMAGE_PATH, img_resized)
 
-    names = []
-    base64_faces = []
-    backups = []
+    global faiss_index
+    if faiss_index is None:
+        faiss_index = faiss.IndexFlatL2(128)  # Facenet embedding size
+        faiss.write_index(faiss_index, DB_PATH)
+    index = faiss_index
+
+    # Usar detector opencv para evitar download de pesos
+    try:
+        faces = DeepFace.extract_faces(img_path=IMAGE_PATH, detector_backend='opencv')
+        img = cv2.imread(IMAGE_PATH)
+    
+    except: 
+        return JSONResponse(status_code=400, content={"error": "Nenhuma face detectada na imagem."})
+
+    recognitions = []
     coords_seen = []
 
     for i, face in enumerate(faces):
         coords = [face["facial_area"]["x"], face["facial_area"]["y"], face["facial_area"]["w"], face["facial_area"]["h"]]
-
-        # Avoid duplicate matches (IoU)
         if any(calculate_iou(coords, prev) > 0.35 for prev in coords_seen):
             continue
         coords_seen.append(coords)
-
-        # Crop & represent
         face_crop = img[coords[1]:coords[1]+coords[3], coords[0]:coords[0]+coords[2]]
-        embedding = DeepFace.represent(img_path=IMAGE_PATH, model_name=modelName, enforce_detection=False, detector_backend="retinaface")[i]['embedding']
-        embedding_np = np.array(embedding).astype("float32").reshape(1, -1)
-
-        # FAISS search
-        D, I = index.search(embedding_np, 5)
-
+        # Sempre usar Facenet e detector opencv
+        embedding = DeepFace.represent(img_path=IMAGE_PATH, model_name="Facenet", enforce_detection=False, detector_backend="opencv")[i]['embedding']
+        embedding_np = np.array(embedding).astype("float32")
+        embedding_np = embedding_np / np.linalg.norm(embedding_np)  # Normalização L2
+        embedding_np = embedding_np.reshape(1, -1)
+        try:
+            D, I = index.search(embedding_np, 5)
+        except Exception as e:
+            print(f"[ERRO] FAISS search falhou: {e}. Resetando índice.")
+            faiss_index = faiss.IndexFlatL2(embedding_np.shape[1])
+            faiss.write_index(faiss_index, DB_PATH)
+            index = faiss_index
+            D, I = index.search(embedding_np, 5)
         face_b64 = base64.b64encode(cv2.imencode('.jpg', face_crop)[1]).decode('utf-8')
-        base64_faces.append(face_b64)
-
-        # Fetch names for top results
-        matched_names = []
-        matched_clerk_ids = []
-        for j, idx in enumerate(I[0]):
-            cursor.execute("SELECT name, clerk_id FROM face_embeddings WHERE faiss_index_id = %s", (int(idx),))
-            row = cursor.fetchone()
-            if row:
-                print(row)
-                matched_names.append({"name": row["name"], "confidence": round(float(D[0][j]), 2)})
-                matched_clerk_ids.append(row["clerk_id"])
-
-        if matched_names:
-            names.append([matched_names[0]["name"]])
-            backups.append(matched_names[1:])  # other backup names
+        # Buscar apenas o match mais próximo
+        best_idx = int(I[0][0])
+        best_conf = float(D[0][0])
+        cur = db.cursor()
+        cur.execute("SELECT name, clerk_id FROM face_embeddings WHERE faiss_index_id = %s", (best_idx,))
+        row = cur.fetchone()
+        cur.fetchall()  # Garante que todos os resultados foram consumidos
+        cur.close()
+        if row and best_conf <= 0.8:
+            recognition = {
+                "name": row[0],
+                "confidence": round(best_conf, 2),
+                "coords": coords,
+                "face": face_b64,
+                "clerk_id": row[1]
+            }
         else:
-            names.append(f"No Match {i+1}")
-            backups.append([{"name": "No Match", "confidence": 0.0}])
+            recognition = {
+                "name": "No Match",
+                "confidence": round(best_conf, 2),
+                "coords": coords,
+                "face": face_b64,
+                "clerk_id": None
+            }
+        recognitions.append(recognition)
+
+    if not recognitions:
+        return JSONResponse(status_code=200, content={"error": "Nenhuma face reconhecida na imagem."})
 
     return JSONResponse(content={
-        "faces": base64_faces,
-        "names": names,
-        "backups": backups,
-        "coords": coords_seen,
-        "clerk_ids": matched_clerk_ids,
+        "recognitions": recognitions
     })
 
-    

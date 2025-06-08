@@ -23,4 +23,12 @@ CREATE TABLE user_follow (
     id CHAR(36) NOT NULL PRIMARY KEY,
     id_follow CHAR(36) NOT NULL,
     id_followed CHAR(36) NOT NULL
-)
+);
+
+CREATE TABLE messages (
+    id CHAR(36) NOT NULL PRIMARY KEY,
+    user_id CHAR(36) NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
