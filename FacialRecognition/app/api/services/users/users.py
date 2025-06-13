@@ -72,29 +72,22 @@ async def delete_user_service(clerk_id):
     }
 
 async def user_follow_service(clerk_id, followed_clerk_id):
-    followed = get_user_service(clerk_id=followed_clerk_id)
-    
-    following = get_user_service(clerk_id=clerk_id)
-    
+    followed = await get_user_service(clerk_id=followed_clerk_id)
+    following = await get_user_service(clerk_id=clerk_id)
     follow_id = str(uuid4())
-    
     cursor.execute("INSERT INTO user_follow (id, id_follow, id_followed) VALUES (%s, %s, %s)", (follow_id, following["id"], followed["id"]))
     db.commit()
-    
     return {
-        "message": f"Succesfully Followed {followed["username"]}"
+        "message": f"Succesfully Followed {followed['username']}"
     }
 
 async def user_unfollow_service(clerk_id, followed_clerk_id):
-    followed = get_user_service(clerk_id=followed_clerk_id)
-    
-    following = get_user_service(clerk_id=clerk_id)
-    
+    followed = await get_user_service(clerk_id=followed_clerk_id)
+    following = await get_user_service(clerk_id=clerk_id)
     cursor.execute("DELETE FROM user_follow WHERE id_follow = %s AND id_followed = %s", (following["id"], followed["id"]))
     db.commit()
-    
     return {
-        "message": f"Succesfully Unfollowed {followed["username"]}"
+        "message": f"Succesfully Unfollowed {followed['username']}"
     }
 
 async def get_followers_service(clerk_id):
@@ -109,14 +102,15 @@ async def get_followers_service(clerk_id):
     
     followers = []
     for row in result:
-        cursor.execute("SELECT * FROM users WHERE id = %s", (row[0],))
+        cursor.execute("SELECT * FROM users WHERE id = %s", (row[1],))
         follower = cursor.fetchone()
-        followers.append({
-            "id": follower[0],
-            "username": follower[1],
-            "clerk_id": follower[2]
-        })
-    
+        if follower:
+            followers.append({
+                "id": follower[0],
+                "username": follower[1],
+                "clerk_id": follower[2]
+            })
+    print(followers)
     return {"followers": followers}
 
 async def get_following_service(clerk_id):
@@ -125,20 +119,21 @@ async def get_following_service(clerk_id):
     
     if not result:
         return {"error": "User not found"}
-    
+    print(result)
     cursor.execute("SELECT * FROM user_follow WHERE id_follow = %s", (result[0],))
     result = cursor.fetchall()
-    
+    print(result)
     following = []
     for row in result:
-        cursor.execute("SELECT * FROM users WHERE id = %s", (row[1],))
+        print(row)
+        cursor.execute("SELECT * FROM users WHERE id = %s", (row[2],))
         followed_user = cursor.fetchone()
         following.append({
             "id": followed_user[0],
             "username": followed_user[1],
             "clerk_id": followed_user[2]
         })
-    
+    print(following)
     return {"following": following}
 
 async def follow_by_photo_service(file, clerk_id):
